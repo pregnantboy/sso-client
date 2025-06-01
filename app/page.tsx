@@ -19,6 +19,7 @@ export default function App() {
     null
   )
   const [error, setError] = useState('')
+  const [iframeMessage, setIframeMessage] = useState<string>('')
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const timeoutRef = useRef<NodeJS.Timeout>()
 
@@ -51,6 +52,7 @@ export default function App() {
     // Set up postMessage listener
     const handleMessage = (event: MessageEvent) => {
       if (event.origin !== process.env.NEXT_PUBLIC_SSO_URL) return
+      setIframeMessage(`Received message: ${JSON.stringify(event.data)}`)
       if (event.data.type === 'SSO_AUTH_SUCCESS') {
         console.log('SSO_AUTH_SUCCESS')
         clearTimeout(timeoutRef.current)
@@ -59,8 +61,18 @@ export default function App() {
       } else if (event.data.type === 'SSO_AUTH_FAILED') {
         clearTimeout(timeoutRef.current)
         console.log('SSO_AUTH_FAILED')
+        console.log(event.data)
         window.removeEventListener('message', handleMessage)
         // fallbackToRedirect()
+      } else if (event.data.type === 'SSO_AUTH_NONE') {
+        clearTimeout(timeoutRef.current)
+        console.log('SSO_AUTH_NONE')
+        console.log(event.data)
+        window.removeEventListener('message', handleMessage)
+        // show login button
+        setAuthMethod(null)
+        setUser(null)
+        setLoading(false)
       }
     }
 
@@ -78,8 +90,8 @@ export default function App() {
     iframe.style.position = 'absolute'
     iframe.style.top = '0'
     iframe.style.left = '0'
-    iframe.style.height = '100px'
-    iframe.style.width = '100px'
+    iframe.style.height = '200px'
+    iframe.style.width = '200px'
     iframe.src = `${
       process.env.NEXT_PUBLIC_SSO_URL
     }/api/sso/silent-auth?client_id=clientA&redirect_uri=${encodeURIComponent(
@@ -170,6 +182,13 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center">
+        {
+          iframeMessage && (
+            <Alert className="mb-6" variant="default">
+              <AlertDescription>{iframeMessage}</AlertDescription>
+            </Alert>
+          )
+        }
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center space-y-4">
@@ -194,9 +213,28 @@ export default function App() {
     )
   }
 
+  // user is not authenticated, show login button
+  // if (authMethod === 'none') {
+  //   return (
+  //     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center">
+  //       <Card className="w-full max-w-md">
+  //         <CardContent className="pt-6">
+  //           <div className="text-center space-y-4">
+  //             <p className="text-sm text-gray-600">
+  //              Welcome
+  //             </p>
+  //             <Button onClick={handleManualLogin}>Login with SSO</Button>
+  //           </div>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-8">
       <div className="max-w-4xl mx-auto">
+
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -223,9 +261,6 @@ export default function App() {
           <Card className="max-w-md mx-auto">
             <CardHeader className="text-center">
               <CardTitle>Welcome to Client A</CardTitle>
-              <CardDescription>
-                Hybrid authentication in progress...
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -243,7 +278,7 @@ export default function App() {
                   className="w-full"
                   variant="outline"
                 >
-                  Manual Login (Skip Silent Auth)
+                  Login with SSO
                 </Button>
               </div>
             </CardContent>
